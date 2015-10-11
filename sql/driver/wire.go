@@ -30,6 +30,9 @@ const (
 	// Endpoint is the URL path prefix which accepts incoming
 	// HTTP requests for the SQL API.
 	Endpoint = "/sql/"
+
+	// SecondsInDay is the number of seconds in a day.
+	SecondsInDay = 24 * 60 * 60
 )
 
 func makeDatum(val driver.Value) (Datum, error) {
@@ -55,10 +58,8 @@ func makeDatum(val driver.Value) (Datum, error) {
 			&timestamp,
 		}
 	case Date:
-		timestamp := Timestamp(t.Time)
-		datum.Payload = &Datum_DateVal{
-			&timestamp,
-		}
+		secs := t.Time.Unix()
+		datum.Payload = &Datum_DateVal{secs / SecondsInDay}
 	default:
 		return datum, util.Errorf("unsupported type %T", t)
 	}
@@ -101,7 +102,8 @@ func (d Datum) Value() (driver.Value, error) {
 	case *Datum_StringVal:
 		val = t.StringVal
 	case *Datum_DateVal:
-		val = MakeDate(t.DateVal.GoTime())
+		timestamp := time.Unix(t.DateVal*SecondsInDay, 0).UTC()
+		val = MakeDate(timestamp)
 	case *Datum_TimeVal:
 		val = t.TimeVal.GoTime()
 	case *Datum_IntervalVal:
