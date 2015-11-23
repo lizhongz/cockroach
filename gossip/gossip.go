@@ -323,6 +323,29 @@ func (g *Gossip) GetInfosAsJSON() ([]byte, error) {
 // of info denoted by key.
 type Callback func(string, roachpb.Value)
 
+type UpdateInfo struct {
+	Key string
+	Val roachpb.Value
+}
+
+func (g *Gossip) RegisterUpdateChan(pattern string, ch chan UpdateInfo) func() {
+	if pattern == KeySystemConfig {
+		log.Warning("raw gossip callback registered on %s, consider using RegisterSystemConfigCallback",
+			KeySystemConfig)
+	}
+
+	g.mu.Lock()
+	unregister := g.is.registerCallback(pattern, func(k string, v roachpb.Value) {
+		ch <- UpdateInfo{k, v}
+	})
+	g.mu.Unlock()
+	return func() {
+		g.mu.Lock()
+		unregister()
+		g.mu.Unlock()
+	}
+}
+
 // RegisterCallback registers a callback for a key pattern to be
 // invoked whenever new info for a gossip key matching pattern is
 // received. The callback method is invoked with the info key which

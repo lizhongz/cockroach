@@ -96,3 +96,25 @@ func TestGossipGetNextBootstrapAddress(t *testing.T) {
 		}
 	}
 }
+
+func TestRegisterUpdateChan(t *testing.T) {
+	defer leaktest.AfterTest(t)
+
+	rpcContext := rpc.NewContext(&base.Context{}, hlc.NewClock(hlc.UnixNano), nil)
+	g := New(rpcContext, TestBootstrap)
+
+	ch := make(chan UpdateInfo)
+	g.RegisterUpdateChan("key.*", ch)
+
+	key := "key1"
+	go func() {
+		if err := g.AddInfo(key, nil, time.Hour); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	update := <-ch
+	if update.Key != key {
+		t.Errorf("Expected %v, got %v\n", key, update.Key)
+	}
+}
